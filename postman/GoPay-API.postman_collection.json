@@ -1,0 +1,341 @@
+{
+	"info": {
+		"_postman_id": "gopay-merchant-api-collection",
+		"name": "GoPay Merchant API",
+		"description": "Коллекция для работы с GoPay Merchant API.\n\nПодпись (HMAC-SHA512) генерируется автоматически через Pre-request Script.\n\nПеред использованием:\n1. Импортируйте environment (Production или Testing)\n2. Заполните переменные `api_key` и `secret_key`\n\nДокументация: https://doc.gopay.kg/v1/\nOpenAPI Schema: https://doc.gopay.kg/v1/schema/",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"const apiKey = pm.environment.get(\"api_key\");",
+					"const secretKey = pm.environment.get(\"secret_key\");",
+					"",
+					"if (!apiKey || !secretKey) {",
+					"    console.warn(\"GoPay: api_key или secret_key не заданы в environment\");",
+					"}",
+					"",
+					"const nonce = require(\"uuid\").v4().replace(/-/g, \"\").substring(0, 32);",
+					"const dataStr = pm.request.body ? pm.request.body.raw : \"\";",
+					"const payload = nonce + \"\\n\" + dataStr + \"\\n\";",
+					"const signature = CryptoJS.HmacSHA512(payload, secretKey).toString(CryptoJS.enc.Hex).toUpperCase();",
+					"",
+					"pm.request.headers.add({ key: \"GoPay-Api-Key\", value: apiKey });",
+					"pm.request.headers.add({ key: \"GoPay-Nonce\", value: nonce });",
+					"pm.request.headers.add({ key: \"GoPay-Signature\", value: signature });"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "Платежи",
+			"description": "Создание и запрос статуса платежей.",
+			"item": [
+				{
+					"name": "Создать платёж",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"order_id\": \"order-001\",\n\t\"amount\": \"100.00\",\n\t\"description\": \"Оплата заказа #001\",\n\t\"lifetime\": 3600,\n\t\"callback_url\": \"https://example.com/webhook/gopay\",\n\t\"success_url\": \"https://example.com/payment/success\",\n\t\"failure_url\": \"https://example.com/payment/failure\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/payments",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "payments"]
+						},
+						"description": "Создаёт новый платёж в системе GoPay.\n\nОбязательные поля:\n- `order_id` — идентификатор заказа в вашей системе (до 32 символов)\n- `amount` — сумма платежа (0.01–999999.99)\n\nНеобязательные поля:\n- `description` — описание платежа (до 255 символов)\n- `lifetime` — время жизни платежа в секундах (300–86400, по умолчанию 3600)\n- `callback_url` — URL для webhook-уведомлений о результате\n- `success_url` — URL редиректа после успешной оплаты\n- `failure_url` — URL редиректа после неудачной оплаты\n- `testing_mode` — флаг тестового режима (boolean)\n\nСтатусы платежа: CREATED → COMMITTED / FAILED / EXPIRED"
+					},
+					"response": [
+						{
+							"name": "Успешное создание платежа",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"order_id\": \"order-001\",\n\t\"amount\": \"100.00\",\n\t\"description\": \"Оплата заказа #001\",\n\t\"lifetime\": 3600,\n\t\"callback_url\": \"https://example.com/webhook/gopay\",\n\t\"success_url\": \"https://example.com/payment/success\",\n\t\"failure_url\": \"https://example.com/payment/failure\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/payments",
+									"host": ["{{base_url}}"],
+									"path": ["v1", "payments"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n\t\"status\": \"OK\",\n\t\"code\": \"0001\",\n\t\"data\": {\n\t\t\"payment_id\": \"abc123def456\",\n\t\t\"order_id\": \"order-001\",\n\t\t\"amount\": \"100.00\",\n\t\t\"status\": \"CREATED\",\n\t\t\"description\": \"Оплата заказа #001\",\n\t\t\"checkout_url\": \"https://pay.gopay.kg/checkout/abc123def456\",\n\t\t\"qr_url\": \"https://pay.gopay.kg/qr/abc123def456.png\",\n\t\t\"qr_data\": \"...\",\n\t\t\"created_at\": \"2025-01-15T10:30:00Z\",\n\t\t\"expires_at\": \"2025-01-15T11:30:00Z\"\n\t}\n}"
+						}
+					]
+				},
+				{
+					"name": "Получить статус платежа",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"payment_id\": \"abc123def456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/payments/query",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "payments", "query"]
+						},
+						"description": "Запрашивает текущий статус платежа.\n\nМожно искать по одному из полей:\n- `payment_id` — идентификатор платежа в системе GoPay\n- `order_id` — идентификатор заказа в вашей системе\n\nЕсли указаны оба поля, поиск выполняется по `payment_id`."
+					},
+					"response": [
+						{
+							"name": "Успешный запрос статуса",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"payment_id\": \"abc123def456\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/payments/query",
+									"host": ["{{base_url}}"],
+									"path": ["v1", "payments", "query"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n\t\"status\": \"OK\",\n\t\"code\": \"0001\",\n\t\"data\": {\n\t\t\"payment_id\": \"abc123def456\",\n\t\t\"order_id\": \"order-001\",\n\t\t\"amount\": \"100.00\",\n\t\t\"status\": \"COMMITTED\",\n\t\t\"description\": \"Оплата заказа #001\",\n\t\t\"checkout_url\": \"https://pay.gopay.kg/checkout/abc123def456\",\n\t\t\"qr_url\": \"https://pay.gopay.kg/qr/abc123def456.png\",\n\t\t\"qr_data\": \"...\",\n\t\t\"created_at\": \"2025-01-15T10:30:00Z\",\n\t\t\"expires_at\": \"2025-01-15T11:30:00Z\",\n\t\t\"committed_at\": \"2025-01-15T10:35:00Z\"\n\t}\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Статические QR-коды",
+			"description": "Создание и запрос статических QR-кодов для приёма платежей.",
+			"item": [
+				{
+					"name": "Создать статический QR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"name\": \"Кофейня на Чуй\",\n\t\"description\": \"Оплата в кофейне\",\n\t\"amount\": \"250.00\",\n\t\"callback_url\": \"https://example.com/webhook/static-qr\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/static-qr/",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "static-qr", ""]
+						},
+						"description": "Создаёт статический QR-код для приёма платежей.\n\nОбязательные поля:\n- `name` — название точки/сервиса (до 100 символов)\n\nНеобязательные поля:\n- `description` — описание\n- `amount` — фиксированная сумма (если задана, покупатель не сможет изменить сумму)\n- `callback_url` — URL для webhook-уведомлений о платежах по этому QR"
+					},
+					"response": [
+						{
+							"name": "Успешное создание QR",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"name\": \"Кофейня на Чуй\",\n\t\"description\": \"Оплата в кофейне\",\n\t\"amount\": \"250.00\",\n\t\"callback_url\": \"https://example.com/webhook/static-qr\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/static-qr/",
+									"host": ["{{base_url}}"],
+									"path": ["v1", "static-qr", ""]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n\t\"status\": \"OK\",\n\t\"code\": \"0001\",\n\t\"data\": {\n\t\t\"qr_id\": \"qr-abc123\",\n\t\t\"name\": \"Кофейня на Чуй\",\n\t\t\"description\": \"Оплата в кофейне\",\n\t\t\"amount\": \"250.00\",\n\t\t\"callback_url\": \"https://example.com/webhook/static-qr\",\n\t\t\"qr_url\": \"https://pay.gopay.kg/qr/static/qr-abc123.png\",\n\t\t\"qr_data\": \"...\",\n\t\t\"created_at\": \"2025-01-15T10:30:00Z\"\n\t}\n}"
+						}
+					]
+				},
+				{
+					"name": "Получить QR по ID",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n\t\"qr_id\": \"qr-abc123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/static-qr/query",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "static-qr", "query"]
+						},
+						"description": "Запрашивает информацию о статическом QR-коде по его идентификатору.\n\nОбязательные поля:\n- `qr_id` — идентификатор QR-кода (до 32 символов)"
+					},
+					"response": [
+						{
+							"name": "Успешный запрос QR",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n\t\"qr_id\": \"qr-abc123\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/v1/static-qr/query",
+									"host": ["{{base_url}}"],
+									"path": ["v1", "static-qr", "query"]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"body": "{\n\t\"status\": \"OK\",\n\t\"code\": \"0001\",\n\t\"data\": {\n\t\t\"qr_id\": \"qr-abc123\",\n\t\t\"name\": \"Кофейня на Чуй\",\n\t\t\"description\": \"Оплата в кофейне\",\n\t\t\"amount\": \"250.00\",\n\t\t\"callback_url\": \"https://example.com/webhook/static-qr\",\n\t\t\"qr_url\": \"https://pay.gopay.kg/qr/static/qr-abc123.png\",\n\t\t\"qr_data\": \"...\",\n\t\t\"created_at\": \"2025-01-15T10:30:00Z\"\n\t}\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Платёжные приложения",
+			"description": "Получение списка поддерживаемых платёжных приложений.",
+			"item": [
+				{
+					"name": "Список платёжных приложений",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/v1/payment-app",
+							"host": ["{{base_url}}"],
+							"path": ["v1", "payment-app"]
+						},
+						"description": "Возвращает список платёжных приложений, поддерживаемых GoPay (ELQR)."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
